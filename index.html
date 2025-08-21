@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive-Quiz-App</title>
+<link rel="icon" href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSp0CZrauURQzuiiVkboyf4OPn6Pwmw7P17Fg&s">
+<style>
+/* ==== Reset ==== */
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
+body{
+  background: linear-gradient(135deg,#74ebd5,#9face6);
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  transition: background 0.3s,color 0.3s;
+}
+.dark{
+  background: linear-gradient(135deg,#141e30,#243b55);
+  color:#f1f1f1;
+}
+.container{
+  width:95%;max-width:800px;background:rgba(255,255,255,0.2);
+  backdrop-filter:blur(15px);border-radius:20px;padding:20px;
+  box-shadow:0 8px 30px rgba(0,0,0,0.2);
+  transition:background 0.3s;
+}
+.dark .container{background:rgba(0,0,0,0.4);}
+h1{text-align:center;margin-bottom:15px;font-size:2.2rem;}
+button{
+  background:#4e54c8;color:#fff;border:none;padding:10px 20px;
+  margin:8px;border-radius:12px;cursor:pointer;font-size:1rem;
+  transition:transform 0.2s,background 0.3s;
+}
+button:hover{transform:scale(1.05);background:#8f94fb;}
+#category{display:flex;flex-direction:column;align-items:center;}
+#quiz,#result{display:none;}
+.option{
+  display:block;width:100%;margin:10px 0;padding:12px;
+  background:gba(255,255,255,0.3);border-radius:10px;
+  cursor:pointer;transition:all 0.3s;
+}
+.option:hover{background:rba(255,255,255,0.5);color: #000;}
+.option.correct{background:#4CAF50 !important;color:#fff;}
+.option.wrong{background:#F44336 !important;color:#fff;}
+#progressBarContainer{width:100%;height:12px;background:#ddd;
+  border-radius:10px;overflow:hidden;margin:15px 0;}
+#progressBar{height:100%;width:0%;background:#4e54c8;transition:width 0.3s;}
+#timer{font-weight:bold;margin-bottom:10px;}
+#hintText{margin:8px 0;font-style:italic;display:none;}
+#leaderboard ul,#finalLeaderboard ul{list-style:none;padding:0;}
+#leaderboard li,#finalLeaderboard li{padding:6px;margin:4px;
+  background:rgba(255,255,255,0.3);border-radius:8px;}
+.dark #leaderboard li,.dark #finalLeaderboard li{background:rgba(0,0,0,0.5);}
+.toggle-mode{
+  position:absolute;top:15px;right:20px;background:#fff;color:#000;
+  border-radius:50%;width:40px;height:40px;display:flex;
+  align-items:center;justify-content:center;font-size:20px;
+}
+.dark .toggle-mode{background:#222;color:#fff;}
+</style>
+</head>
+<body>
+<div class="container">
+  <button id="modeToggle" class="toggle-mode">🌙</button>
+  <h1>Quiz App</h1>
+  <div id="category">
+    <h2>Select Category</h2>
+    <button onclick="startQuiz('HTML')">HTML</button>
+    <button onclick="startQuiz('CSS')">CSS</button>
+    <button onclick="startQuiz('JS')">JavaScript</button>
+    <button onclick="startQuiz('GK')">General Knowledge</button>
+  </div>
+
+  <div id="quiz">
+    <div id="timer">Time: 30s</div>
+    <div id="progressBarContainer"><div id="progressBar"></div></div>
+    <h2 id="question"></h2>
+    <div id="options"></div>
+    <button id="hintBtn">💡 Hint</button>
+    <div id="hintText"></div>
+    <div id="leaderboard"></div>
+  </div>
+
+  <div id="result">
+    <h2>Quiz Completed!</h2>
+    <p>Your Score: <span id="finalScore"></span></p>
+    <p>Percentage: <span id="percentage"></span>%</p>
+    <input type="text" id="playerName" placeholder="Enter your name" />
+    <button onclick="saveScore()">Save Score</button>
+    <div id="finalLeaderboard"></div>
+    <button id="retryBtn">Retry</button>
+  </div>
+</div>
+
+<!-- Sounds -->
+<audio id="correctSound" src="https://www.soundjay.com/buttons/sounds/button-3.mp3"></audio>
+<audio id="wrongSound" src="https://www.soundjay.com/buttons/sounds/button-10.mp3"></audio>
+
+<script>
+const questionsData={
+  HTML:[
+    {q:"What does HTML stand for?",options:["HyperText Markup Language","Home Tool Markup Language","Hyperlinks and Text Markup Language","HighText Machine Language"],answer:0,hint:"It's a markup language for web pages.",explanation:"HTML is HyperText Markup Language, used to structure web content."},
+    {q:"Which tag is used for the largest heading?",options:["<h6>","<head>","<h1>","<header>"],answer:2,hint:"Think about heading sizes.",explanation:"<h1> is the largest heading tag in HTML."},
+    {q:"Which attribute specifies an image source?",options:["alt","src","href","link"],answer:1,hint:"Image file location.",explanation:"The 'src' attribute specifies the image source in an <img> tag."}
+  ],
+  CSS:[
+    {q:"Which property changes text color?",options:["font-style","text-color","color","background-color"],answer:2,hint:"Used everywhere!",explanation:"The CSS 'color' property sets the text color."},
+    {q:"Which CSS property makes text bold?",options:["bold","font-weight","font-style","text-bold"],answer:1,hint:"Weight of text.",explanation:"The 'font-weight' property controls text boldness."},
+    {q:"Which unit is relative to the parent element?",options:["px","em","%","vh"],answer:1,hint:"Relative sizing unit.",explanation:"1em equals the font-size of the parent element."}
+  ],
+  JS:[
+    {q:"Which keyword declares a variable?",options:["var","let","const","All of these"],answer:3,hint:"Think ES6.",explanation:"JavaScript supports var, let, and const for variable declarations."},
+    {q:"Which symbol is used for comments?",options:["//","#","<!-- -->","**"],answer:0,hint:"Double slash.",explanation:"'//' is used for single-line comments in JavaScript."},
+    {q:"Which method converts JSON to object?",options:["JSON.parse()","JSON.stringify()","JSON.convert()","parse.JSON()"],answer:0,hint:"Parse the string.",explanation:"JSON.parse() converts JSON string to a JavaScript object."}
+  ],
+  GK:[
+    {q:"Capital of India?",options:["Mumbai","Delhi","Chennai","Kolkata"],answer:1,hint:"National government is here.",explanation:"New Delhi is the capital of India."},
+    {q:"Who wrote 'Ramayana'?",options:["Valmiki","Tulsidas","Kalidas","Veda Vyasa"],answer:0,hint:"Sanskrit poet.",explanation:"Valmiki wrote the original Ramayana in Sanskrit."},
+    {q:"Largest planet?",options:["Earth","Jupiter","Mars","Venus"],answer:1,hint:"Gas giant.",explanation:"Jupiter is the largest planet in the Solar System."}
+  ]
+};
+
+let currentQuestion=0,score=0,questions=[],timer,timeLeft,selectedCategory;
+const questionEl=document.getElementById('question');
+const optionsEl=document.getElementById('options');
+const quizDiv=document.getElementById('quiz');
+const categoryDiv=document.getElementById('category');
+const resultEl=document.getElementById('result');
+const finalScoreEl=document.getElementById('finalScore');
+const percentageEl=document.getElementById('percentage');
+const hintBtn=document.getElementById('hintBtn');
+const hintText=document.getElementById('hintText');
+const progressBar=document.getElementById('progressBar');
+const timerEl=document.getElementById('timer');
+const leaderboardDiv=document.getElementById('leaderboard');
+const finalLeaderboardDiv=document.getElementById('finalLeaderboard');
+const retryBtn=document.getElementById('retryBtn');
+const playerName=document.getElementById('playerName');
+const correctSound=document.getElementById('correctSound');
+const wrongSound=document.getElementById('wrongSound');
+
+function startQuiz(cat){
+  selectedCategory=cat;
+  questions=questionsData[cat];
+  currentQuestion=0;score=0;
+  categoryDiv.style.display='none';
+  quizDiv.style.display='block';
+  loadQuestion();resetTimer();updateLeaderboard();
+}
+function loadQuestion(){
+  const q=questions[currentQuestion];
+  questionEl.textContent=q.q;
+  optionsEl.innerHTML="";
+  q.options.forEach((opt,i)=>{
+    const btn=document.createElement('button');
+    btn.className='option';
+    btn.textContent=opt;
+    btn.onclick=()=>selectAnswer(i,btn);
+    optionsEl.appendChild(btn);
+  });
+  hintText.style.display='none';
+  updateProgress();
+}
+function selectAnswer(i,btn){
+  const correct=questions[currentQuestion].answer;
+  if(i===correct){
+    score++;btn.classList.add('correct');correctSound.play();
+  }else{
+    btn.classList.add('wrong');wrongSound.play();
+    optionsEl.children[correct].classList.add('correct');
+  }
+  setTimeout(()=>{
+    if(currentQuestion<questions.length-1){currentQuestion++;loadQuestion();resetTimer();}
+    else showResult();
+  },1000);
+}
+function updateProgress(){
+  progressBar.style.width=`${((currentQuestion+1)/questions.length)*100}%`;
+}
+function resetTimer(){
+  clearInterval(timer);timeLeft=30;
+  timerEl.textContent=`Time: ${timeLeft}s`;
+  timer=setInterval(()=>{
+    timeLeft--;timerEl.textContent=`Time: ${timeLeft}s`;
+    if(timeLeft<=0){clearInterval(timer);if(currentQuestion<questions.length-1){currentQuestion++;loadQuestion();resetTimer();} else showResult();}
+  },1000);
+}
+hintBtn.onclick=()=>{hintText.style.display='block';hintText.textContent=questions[currentQuestion].hint+" 💡 "+questions[currentQuestion].explanation;};
+function showResult(){
+  quizDiv.style.display='none';resultEl.style.display='block';
+  finalScoreEl.textContent=score;
+  percentageEl.textContent=((score/questions.length)*100).toFixed(2);
+  showFinalLeaderboard();if(score/questions.length>=0.8) confetti();
+}
+retryBtn.onclick=()=>{resultEl.style.display='none';categoryDiv.style.display='block';};
+function confetti(){
+  const conf=document.createElement('div');
+  conf.innerHTML="🎉";conf.style.position='absolute';
+  conf.style.fontSize='60px';conf.style.top='50%';conf.style.left='50%';
+  conf.style.transform='translate(-50%,-50%)';
+  document.body.appendChild(conf);setTimeout(()=>conf.remove(),1500);
+}
+function updateLeaderboard(){
+  const scores=JSON.parse(localStorage.getItem(selectedCategory))||[];
+  leaderboardDiv.innerHTML="<h3>Leaderboard (Top 5)</h3><ul>"+
+  scores.sort((a,b)=>b.score-a.score).slice(0,5).map(s=>`<li>${s.name} - ${s.score}</li>`).join('')+"</ul>";
+}
+function saveScore(){
+  const name=playerName.value.trim()||"Player";
+  const scores=JSON.parse(localStorage.getItem(selectedCategory))||[];
+  scores.push({name,score});localStorage.setItem(selectedCategory,JSON.stringify(scores));
+  showFinalLeaderboard();
+}
+function showFinalLeaderboard(){
+  const scores=JSON.parse(localStorage.getItem(selectedCategory))||[];
+  finalLeaderboardDiv.innerHTML="<h3>Top Scores</h3><ul>"+
+  scores.sort((a,b)=>b.score-a.score).slice(0,5).map(s=>`<li>${s.name} - ${s.score}</li>`).join('')+"</ul>";
+}
+document.getElementById('modeToggle').onclick=function(){
+  document.body.classList.toggle('dark');
+  this.textContent=document.body.classList.contains('dark')?"☀️":"🌙";
+};
+</script>
+</body>
+</html>
